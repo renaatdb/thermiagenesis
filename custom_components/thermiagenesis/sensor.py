@@ -23,7 +23,14 @@ from .const import SENSOR_TYPES
 
 ATTR_COUNTER = "counter"
 ATTR_FIRMWARE = "firmware"
-ATTR_MODEL = "Diplomat Inverter Duo"
+
+# BELANGRIJK:
+# Deze oude identifier behouden we bewust.
+# Daardoor blijft Home Assistant hetzelfde bestaande apparaat gebruiken.
+ATTR_DEVICE_IDENTIFIER = "Diplomat Inverter Duo"
+
+# Dit is de correcte zichtbare apparaatnaam en het correcte model.
+ATTR_MODEL = "Calibra Cool 7 BW"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,7 +42,10 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     sensors = []
 
     device_info = {
-        "identifiers": {(DOMAIN, ATTR_MODEL)},
+        # Bestaande identifier behouden om geen tweede HA-apparaat te creëren.
+        "identifiers": {(DOMAIN, ATTR_DEVICE_IDENTIFIER)},
+
+        # Correcte zichtbare naam en correct model.
         "name": ATTR_MODEL,
         "manufacturer": ATTR_MANUFACTURER,
         "model": ATTR_MODEL,
@@ -97,6 +107,7 @@ class ThermiaHeatpumpSensor(Entity):
         valve_opening = self.coordinator.data.get(
             ATTR_INPUT_MIX_VALVE_COOLING_OPENING_DEGREE
         )
+
         compressor_rpm = self.coordinator.data.get(
             ATTR_INPUT_COMPRESSOR_SPEED_RPM
         )
@@ -346,79 +357,4 @@ class ThermiaTapWaterValvePositionSensor(ThermiaGenericSensor):
     @property
     def entity_registry_enabled_default(self):
         """Enable this Calibra-specific sensor by default."""
-        return True
-
-    @property
-    def state(self):
-        return self.coordinator.data.get(self.kind)
-
-    @property
-    def extra_state_attributes(self):
-        return self._attrs
-
-    @property
-    def icon(self):
-        return SENSOR_TYPES[self.kind][ATTR_ICON]
-
-    @property
-    def unique_id(self):
-        return self._unique_id
-
-    @property
-    def unit_of_measurement(self):
-        return SENSOR_TYPES[self.kind].get(ATTR_UNIT, None)
-
-    @property
-    def device_class(self):
-        return SENSOR_TYPES[self.kind].get(ATTR_CLASS, None)
-
-    @property
-    def state_class(self):
-        return SENSOR_TYPES[self.kind].get(
-            ATTR_STATE_CLASS, SensorStateClass.MEASUREMENT
-        )
-
-    @property
-    def available(self):
-        return self.coordinator.last_update_success
-
-    @property
-    def should_poll(self):
-        return False
-
-    @property
-    def device_info(self):
-        return self._device_info
-
-    def async_write_ha_state(self):
-        super().async_write_ha_state()
-
-    @property
-    def entity_registry_enabled_default(self):
-        return SENSOR_TYPES[self.kind][ATTR_DEFAULT_ENABLED]
-
-    async def async_added_to_hass(self):
-        await super().async_added_to_hass()
-        self.coordinator.registerAttribute(self.kind)
-        self.async_on_remove(
-            self.coordinator.async_add_listener(self.async_write_ha_state)
-        )
-
-    async def async_update(self):
-        await self.coordinator.async_request_refresh()
-
-
-class ThermiaTapWaterValvePositionSensor(ThermiaGenericSensor):
-    """Expose the Calibra tap-water directional valve position."""
-
-    def __init__(self, coordinator, kind, device_info):
-        super().__init__(coordinator, kind, device_info)
-        self._name = "Tap Water Valve Position"
-
-    @property
-    def unit_of_measurement(self):
-        return PERCENTAGE
-
-    @property
-    def entity_registry_enabled_default(self):
         return True
