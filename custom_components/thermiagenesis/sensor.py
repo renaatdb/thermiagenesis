@@ -1,7 +1,9 @@
 import logging
 
 from homeassistant.components.sensor import SensorStateClass
+from homeassistant.const import PERCENTAGE
 from homeassistant.helpers.entity import Entity
+from pythermiagenesis.const import ATTR_INPUT_HOT_WATER_DIRECTIONAL_VALVE_POSITION
 from pythermiagenesis.const import REGISTERS
 
 from .const import ATTR_CLASS
@@ -42,6 +44,19 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     for sensor in SENSOR_TYPES:
         if REGISTERS[sensor][coordinator.kind]:
             sensors.append(ThermiaGenericSensor(coordinator, sensor, device_info))
+
+    # Calibra/Calibra Cool exposes input register 47 as the tap-water
+    # directional valve position. pythermiagenesis knows this register but
+    # marks it unsupported for the generic "inverter" model, so the upstream
+    # integration filters it out. Read it explicitly in this Calibra fork.
+    sensors.append(
+        ThermiaTapWaterValvePositionSensor(
+            coordinator,
+            ATTR_INPUT_HOT_WATER_DIRECTIONAL_VALVE_POSITION,
+            device_info,
+        )
+    )
+
     async_add_entities(sensors, False)
 
 
@@ -233,3 +248,22 @@ class ThermiaGenericSensor(Entity):
     async def async_update(self):
         """Update Thermia entity."""
         await self.coordinator.async_request_refresh()
+
+
+class ThermiaTapWaterValvePositionSensor(ThermiaGenericSensor):
+    """Expose the Calibra tap-water directional valve position."""
+
+    def __init__(self, coordinator, kind, device_info):
+        """Initialize the Calibra tap-water valve position sensor."""
+        super().__init__(coordinator, kind, device_info)
+        self._name = "Tap Water Valve Position"
+
+    @property
+    def unit_of_measurement(self):
+        """Return the valve position in percent."""
+        return PERCENTAGE
+
+    @property
+    def entity_registry_enabled_default(self):
+        """Enable this safe read-only Calibra sensor by default."""
+        return True
