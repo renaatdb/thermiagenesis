@@ -3,7 +3,9 @@ import logging
 from homeassistant.components.sensor import SensorStateClass
 from homeassistant.const import PERCENTAGE
 from homeassistant.helpers.entity import Entity
+from pythermiagenesis.const import ATTR_INPUT_COMPRESSOR_SPEED_RPM
 from pythermiagenesis.const import ATTR_INPUT_HOT_WATER_DIRECTIONAL_VALVE_POSITION
+from pythermiagenesis.const import ATTR_INPUT_MIX_VALVE_COOLING_OPENING_DEGREE
 from pythermiagenesis.const import REGISTERS
 
 from .const import ATTR_CLASS
@@ -66,7 +68,6 @@ class ThermiaHeatpumpSensor(Entity):
     def __init__(self, coordinator, kind, device_info):
         """Initialize."""
         self._name = "Heatpump"
-        # self._name = f"{coordinator.data[ATTR_MODEL]} {SENSOR_TYPES[kind][ATTR_LABEL]}"
         self._unique_id = "thermiagenesis_heatpump"
         self._device_info = device_info
         self.coordinator = coordinator
@@ -78,10 +79,24 @@ class ThermiaHeatpumpSensor(Entity):
         """Return the name."""
         return self._name
 
+    def is_passive_cooling(self):
+        """Return True when the Calibra is producing passive cooling."""
+        valve_opening = self.coordinator.data.get(
+            ATTR_INPUT_MIX_VALVE_COOLING_OPENING_DEGREE
+        )
+        compressor_rpm = self.coordinator.data.get(ATTR_INPUT_COMPRESSOR_SPEED_RPM)
+
+        try:
+            return float(valve_opening or 0) > 0 and float(compressor_rpm or 0) == 0
+        except (TypeError, ValueError):
+            return False
+
     @property
     def state(self):
         """Return the state."""
         val = self.coordinator.data.get(self.kind)
+        if str(val).lower() == "off" and self.is_passive_cooling():
+            return "Passive Cooling"
         return val
 
     @property
@@ -102,6 +117,8 @@ class ThermiaHeatpumpSensor(Entity):
         """Return the icon."""
         if self.has_alarm():
             return "mdi-alert"
+        if self.is_passive_cooling():
+            return "mdi-snowflake"
         return "mdi-pulse"
 
     @property
@@ -144,11 +161,13 @@ class ThermiaHeatpumpSensor(Entity):
         super().async_write_ha_state()
 
     async def async_added_to_hass(self):
-        register_attr = [self.kind]
+        register_attr = [
+            self.kind,
+            ATTR_INPUT_MIX_VALVE_COOLING_OPENING_DEGREE,
+        ]
         for attr in HEATPUMP_ATTRIBUTES:
             register_attr.append(attr[0])
         self.coordinator.registerAttribute(register_attr)
-        """Connect to dispatcher listening for entity data notifications."""
         self.async_on_remove(
             self.coordinator.async_add_listener(self.async_write_ha_state)
         )
@@ -164,7 +183,6 @@ class ThermiaGenericSensor(Entity):
     def __init__(self, coordinator, kind, device_info):
         """Initialize."""
         self._name = f"{SENSOR_TYPES[kind][ATTR_LABEL]}"
-        # self._name = f"{coordinator.data[ATTR_MODEL]} {SENSOR_TYPES[kind][ATTR_LABEL]}"
         self._unique_id = f"thermiagenesis_{kind}"
         self._device_info = device_info
         self.coordinator = coordinator
@@ -173,60 +191,48 @@ class ThermiaGenericSensor(Entity):
 
     @property
     def name(self):
-        """Return the name."""
         return self._name
 
     @property
     def state(self):
-        """Return the state."""
-        val = self.coordinator.data.get(self.kind)
-        return val
+        return self.coordinator.data.get(self.kind)
 
     @property
     def extra_state_attributes(self):
-        """Return the state attributes."""
         return self._attrs
 
     @property
     def icon(self):
-        """Return the icon."""
         return SENSOR_TYPES[self.kind][ATTR_ICON]
 
     @property
     def unique_id(self):
-        """Return a unique_id for this entity."""
         return self._unique_id
 
     @property
     def unit_of_measurement(self):
-        """Return the unit the value is expressed in."""
         return SENSOR_TYPES[self.kind].get(ATTR_UNIT, None)
 
     @property
     def device_class(self):
-        """Return de device class of the sensor."""
         return SENSOR_TYPES[self.kind].get(ATTR_CLASS, None)
 
     @property
     def state_class(self):
-        """Return de device class of the sensor."""
         return SENSOR_TYPES[self.kind].get(
             ATTR_STATE_CLASS, SensorStateClass.MEASUREMENT
         )
 
     @property
     def available(self):
-        """Return True if entity is available."""
         return self.coordinator.last_update_success
 
     @property
     def should_poll(self):
-        """Return the polling requirement of the entity."""
         return False
 
     @property
     def device_info(self):
-        """Return the device info."""
         return self._device_info
 
     def async_write_ha_state(self):
@@ -234,19 +240,16 @@ class ThermiaGenericSensor(Entity):
 
     @property
     def entity_registry_enabled_default(self):
-        """Return if the entity should be enabled when first added to the entity registry."""
         return SENSOR_TYPES[self.kind][ATTR_DEFAULT_ENABLED]
 
     async def async_added_to_hass(self):
         await super().async_added_to_hass()
-        """Connect to dispatcher listening for entity data notifications."""
         self.coordinator.registerAttribute(self.kind)
         self.async_on_remove(
             self.coordinator.async_add_listener(self.async_write_ha_state)
         )
 
     async def async_update(self):
-        """Update Thermia entity."""
         await self.coordinator.async_request_refresh()
 
 
@@ -254,16 +257,13 @@ class ThermiaTapWaterValvePositionSensor(ThermiaGenericSensor):
     """Expose the Calibra tap-water directional valve position."""
 
     def __init__(self, coordinator, kind, device_info):
-        """Initialize the Calibra tap-water valve position sensor."""
         super().__init__(coordinator, kind, device_info)
         self._name = "Tap Water Valve Position"
 
     @property
     def unit_of_measurement(self):
-        """Return the valve position in percent."""
         return PERCENTAGE
 
     @property
     def entity_registry_enabled_default(self):
-        """Enable this safe read-only Calibra sensor by default."""
         return True
