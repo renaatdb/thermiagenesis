@@ -1,6 +1,5 @@
 # Thermia Genesis – Calibra Cool fork
 
-![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 [![GitHub Activity](https://img.shields.io/github/commit-activity/y/renaatdb/thermiagenesis.svg?style=for-the-badge)](https://github.com/renaatdb/thermiagenesis/commits/calibra-cool)
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://hacs.xyz)
 
