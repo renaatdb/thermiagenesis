@@ -35,24 +35,38 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
     for sensor in BINARY_SENSOR_TYPES:
         if REGISTERS[sensor][coordinator.kind]:
-            sensors.append(ThermiaBinarySensor(coordinator, sensor, device_info))
+            sensors.append(
+                ThermiaBinarySensor(
+                    coordinator,
+                    sensor,
+                    device_info,
+                )
+            )
 
     # Calibra/Calibra Cool does not reliably assert the built-in
     # "mixing valve 1 is producing passive cooling" discrete input.
-    # Derive a reliable read-only state from the actual cooling valve opening
-    # and compressor speed, which has been verified on Calibra Cool 7 BW.
-    sensors.append(ThermiaPassiveCoolingSensor(coordinator, device_info))
+    #
+    # Derive a reliable read-only state from:
+    # - the actual cooling-valve opening;
+    # - the actual compressor speed.
+    #
+    # This behaviour has been verified on a Calibra Cool 7 BW.
+    sensors.append(
+        ThermiaPassiveCoolingSensor(
+            coordinator,
+            device_info,
+        )
+    )
 
     async_add_entities(sensors, False)
 
 
 class ThermiaBinarySensor(BinarySensorEntity):
-    """Define a Thermia generic sensor."""
+    """Define a Thermia generic binary sensor."""
 
     def __init__(self, coordinator, kind, device_info):
         """Initialize."""
         self._name = f"{BINARY_SENSOR_TYPES[kind][ATTR_LABEL]}"
-        # self._name = f"{coordinator.data[ATTR_MODEL]} {SENSOR_TYPES[kind][ATTR_LABEL]}"
         self._unique_id = f"thermiagenesis_{kind}"
         self._device_info = device_info
         self.coordinator = coordinator
@@ -67,14 +81,14 @@ class ThermiaBinarySensor(BinarySensorEntity):
     @property
     def is_on(self):
         """Return the state."""
-        val = self.coordinator.data.get(self.kind)
-        return val
+        return self.coordinator.data.get(self.kind)
 
     @property
     def device_class(self):
         """Return the device class."""
         if ATTR_CLASS not in BINARY_SENSOR_TYPES[self.kind]:
             return None
+
         return BINARY_SENSOR_TYPES[self.kind][ATTR_CLASS]
 
     @property
@@ -104,17 +118,21 @@ class ThermiaBinarySensor(BinarySensorEntity):
 
     @property
     def entity_registry_enabled_default(self):
-        """Return if the entity should be enabled when first added to the entity registry."""
+        """Return whether the entity should be enabled by default."""
         return BINARY_SENSOR_TYPES[self.kind][ATTR_DEFAULT_ENABLED]
 
     def async_write_ha_state(self):
+        """Write the latest state to Home Assistant."""
         super().async_write_ha_state()
 
     async def async_added_to_hass(self):
+        """Register attribute and listen for coordinator updates."""
         self.coordinator.registerAttribute(self.kind)
-        """Connect to dispatcher listening for entity data notifications."""
+
         self.async_on_remove(
-            self.coordinator.async_add_listener(self.async_write_ha_state)
+            self.coordinator.async_add_listener(
+                self.async_write_ha_state
+            )
         )
 
     async def async_update(self):
@@ -139,10 +157,25 @@ class ThermiaPassiveCoolingSensor(BinarySensorEntity):
         valve_opening = self.coordinator.data.get(
             ATTR_INPUT_MIX_VALVE_COOLING_OPENING_DEGREE
         )
-        compressor_rpm = self.coordinator.data.get(ATTR_INPUT_COMPRESSOR_SPEED_RPM)
+
+        compressor_rpm = self.coordinator.data.get(
+            ATTR_INPUT_COMPRESSOR_SPEED_RPM
+        )
+
+        # Beide echte Modbuswaarden moeten beschikbaar zijn.
+        #
+        # Een ontbrekende waarde mag niet als 0 worden geïnterpreteerd.
+        # Anders zou bijvoorbeeld een ontbrekende compressorwaarde
+        # ten onrechte als 0 rpm kunnen worden beschouwd en zouden we
+        # foutief "passieve koeling actief" kunnen rapporteren.
+        if valve_opening is None or compressor_rpm is None:
+            return False
 
         try:
-            return float(valve_opening or 0) > 0 and float(compressor_rpm or 0) == 0
+            return (
+                float(valve_opening) > 0
+                and float(compressor_rpm) == 0
+            )
         except (TypeError, ValueError):
             return False
 
@@ -178,8 +211,11 @@ class ThermiaPassiveCoolingSensor(BinarySensorEntity):
                 ATTR_INPUT_COMPRESSOR_SPEED_RPM,
             ]
         )
+
         self.async_on_remove(
-            self.coordinator.async_add_listener(self.async_write_ha_state)
+            self.coordinator.async_add_listener(
+                self.async_write_ha_state
+            )
         )
 
     async def async_update(self):
