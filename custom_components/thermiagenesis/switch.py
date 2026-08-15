@@ -12,7 +12,13 @@ from .const import SWITCH_TYPES
 
 ATTR_COUNTER = "counter"
 ATTR_FIRMWARE = "firmware"
-ATTR_MODEL = "Diplomat Inverter Duo"
+
+# Bestaande Home Assistant device-identifier bewust behouden.
+# Hierdoor blijft Home Assistant hetzelfde fysieke apparaat gebruiken.
+ATTR_DEVICE_IDENTIFIER = "Diplomat Inverter Duo"
+
+# Correcte zichtbare apparaatnaam en model.
+ATTR_MODEL = "Calibra Cool 7 BW"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,7 +30,10 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     sensors = []
 
     device_info = {
-        "identifiers": {(DOMAIN, ATTR_MODEL)},
+        # Oude identifier behouden zodat HA geen tweede apparaat aanmaakt.
+        "identifiers": {(DOMAIN, ATTR_DEVICE_IDENTIFIER)},
+
+        # Correcte zichtbare apparaat-info.
         "name": ATTR_MODEL,
         "manufacturer": ATTR_MANUFACTURER,
         "model": ATTR_MODEL,
@@ -33,7 +42,14 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
     for sensor in SWITCH_TYPES:
         if REGISTERS[sensor][coordinator.kind]:
-            sensors.append(ThermiaSwitch(coordinator, sensor, device_info))
+            sensors.append(
+                ThermiaSwitch(
+                    coordinator,
+                    sensor,
+                    device_info,
+                )
+            )
+
     async_add_entities(sensors, False)
 
 
@@ -43,7 +59,6 @@ class ThermiaSwitch(SwitchEntity):
     def __init__(self, coordinator, kind, device_info):
         """Initialize."""
         self._name = f"{SWITCH_TYPES[kind][ATTR_LABEL]}"
-        # self._name = f"{coordinator.data[ATTR_MODEL]} {SENSOR_TYPES[kind][ATTR_LABEL]}"
         self._unique_id = f"thermiagenesis_{kind}"
         self._device_info = device_info
         self.coordinator = coordinator
@@ -58,14 +73,14 @@ class ThermiaSwitch(SwitchEntity):
     @property
     def is_on(self):
         """Return the state."""
-        val = self.coordinator.data.get(self.kind)
-        return val
+        return self.coordinator.data.get(self.kind)
 
     @property
     def device_class(self):
         """Return the device class."""
         if ATTR_CLASS not in SWITCH_TYPES[self.kind]:
             return None
+
         return SWITCH_TYPES[self.kind][ATTR_CLASS]
 
     @property
@@ -95,17 +110,21 @@ class ThermiaSwitch(SwitchEntity):
 
     @property
     def entity_registry_enabled_default(self):
-        """Return if the entity should be enabled when first added to the entity registry."""
+        """Return whether the entity should be enabled by default."""
         return SWITCH_TYPES[self.kind][ATTR_DEFAULT_ENABLED]
 
     def async_write_ha_state(self):
+        """Write the latest state to Home Assistant."""
         super().async_write_ha_state()
 
     async def async_added_to_hass(self):
+        """Register the Thermia switch attribute."""
         self.coordinator.registerAttribute(self.kind)
-        """Connect to dispatcher listening for entity data notifications."""
+
         self.async_on_remove(
-            self.coordinator.async_add_listener(self.async_write_ha_state)
+            self.coordinator.async_add_listener(
+                self.async_write_ha_state
+            )
         )
 
     async def async_update(self):
@@ -114,8 +133,14 @@ class ThermiaSwitch(SwitchEntity):
 
     async def async_turn_on(self, **kwargs):
         """Turn the entity on."""
-        await self.coordinator._async_set_data(self.kind, True)
+        await self.coordinator._async_set_data(
+            self.kind,
+            True,
+        )
 
     async def async_turn_off(self, **kwargs):
-        """Turn the entity on."""
-        await self.coordinator._async_set_data(self.kind, False)
+        """Turn the entity off."""
+        await self.coordinator._async_set_data(
+            self.kind,
+            False,
+        )
