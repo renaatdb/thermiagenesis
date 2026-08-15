@@ -1,6 +1,8 @@
 import logging
 
 from homeassistant.components.binary_sensor import BinarySensorEntity
+from pythermiagenesis.const import ATTR_INPUT_COMPRESSOR_SPEED_RPM
+from pythermiagenesis.const import ATTR_INPUT_MIX_VALVE_COOLING_OPENING_DEGREE
 from pythermiagenesis.const import REGISTERS
 
 from .const import ATTR_CLASS
@@ -34,6 +36,13 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     for sensor in BINARY_SENSOR_TYPES:
         if REGISTERS[sensor][coordinator.kind]:
             sensors.append(ThermiaBinarySensor(coordinator, sensor, device_info))
+
+    # Calibra/Calibra Cool does not reliably assert the built-in
+    # "mixing valve 1 is producing passive cooling" discrete input.
+    # Derive a reliable read-only state from the actual cooling valve opening
+    # and compressor speed, which has been verified on Calibra Cool 7 BW.
+    sensors.append(ThermiaPassiveCoolingSensor(coordinator, device_info))
+
     async_add_entities(sensors, False)
 
 
@@ -104,6 +113,71 @@ class ThermiaBinarySensor(BinarySensorEntity):
     async def async_added_to_hass(self):
         self.coordinator.registerAttribute(self.kind)
         """Connect to dispatcher listening for entity data notifications."""
+        self.async_on_remove(
+            self.coordinator.async_add_listener(self.async_write_ha_state)
+        )
+
+    async def async_update(self):
+        """Update Thermia entity."""
+        await self.coordinator.async_request_refresh()
+
+
+class ThermiaPassiveCoolingSensor(BinarySensorEntity):
+    """Expose a reliable Calibra passive-cooling state."""
+
+    def __init__(self, coordinator, device_info):
+        """Initialize the passive cooling binary sensor."""
+        self._attr_name = "Passive Cooling Active"
+        self._attr_unique_id = "thermiagenesis_passive_cooling_active"
+        self._attr_icon = "mdi-snowflake"
+        self._device_info = device_info
+        self.coordinator = coordinator
+
+    @property
+    def is_on(self):
+        """Return True while passive cooling is actually running."""
+        valve_opening = self.coordinator.data.get(
+            ATTR_INPUT_MIX_VALVE_COOLING_OPENING_DEGREE
+        )
+        compressor_rpm = self.coordinator.data.get(ATTR_INPUT_COMPRESSOR_SPEED_RPM)
+
+        try:
+            return float(valve_opening or 0) > 0 and float(compressor_rpm or 0) == 0
+        except (TypeError, ValueError):
+            return False
+
+    @property
+    def available(self):
+        """Return True if entity is available."""
+        return self.coordinator.last_update_success
+
+    @property
+    def should_poll(self):
+        """Return the polling requirement of the entity."""
+        return False
+
+    @property
+    def device_info(self):
+        """Return the device info."""
+        return self._device_info
+
+    @property
+    def entity_registry_enabled_default(self):
+        """Enable the Calibra passive-cooling status by default."""
+        return True
+
+    def async_write_ha_state(self):
+        """Write the latest state to Home Assistant."""
+        super().async_write_ha_state()
+
+    async def async_added_to_hass(self):
+        """Register the required Modbus input registers."""
+        self.coordinator.registerAttribute(
+            [
+                ATTR_INPUT_MIX_VALVE_COOLING_OPENING_DEGREE,
+                ATTR_INPUT_COMPRESSOR_SPEED_RPM,
+            ]
+        )
         self.async_on_remove(
             self.coordinator.async_add_listener(self.async_write_ha_state)
         )
