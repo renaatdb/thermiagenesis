@@ -1,96 +1,146 @@
-# Thermia Genesis
+# Thermia Genesis – Calibra Cool fork
 
-[![GitHub Release][releases-shield]][releases]
-[![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
+[![License](https://img.shields.io/github/license/renaatdb/thermiagenesis.svg?style=for-the-badge)](LICENSE)
+[![GitHub Activity](https://img.shields.io/github/commit-activity/y/renaatdb/thermiagenesis.svg?style=for-the-badge)](https://github.com/renaatdb/thermiagenesis/commits/calibra-cool)
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://hacs.xyz)
 
-[![pre-commit][pre-commit-shield]][pre-commit]
-[![Black][black-shield]][black]
+Home Assistant custom integration for Thermia heat pumps using **local Modbus TCP**.
 
-[![hacs][hacsbadge]][hacs]
-[![Project Maintenance][maintenance-shield]][user_profile]
-[![BuyMeCoffee][buymecoffeebadge]][buymecoffee]
+This repository is a fork of
+[CJNE/thermiagenesis](https://github.com/CJNE/thermiagenesis)
+with additional fixes and functionality tested on a:
 
-[![Discord][discord-shield]][discord]
-[![Community Forum][forum-shield]][forum]
+**Thermia Calibra Cool 7 BW**
 
-This custom component for [home assistant](https://home-assistant.io/) will let you connect your Thermia Diplomat Inverter or
-Mega heat pump to Home Assistant using ModbusTCP.
+> [!IMPORTANT]
+> This fork is currently tested on a **Thermia Calibra Cool 7 BW**.
+>
+> Other Thermia Genesis inverter models may work, but the Calibra-specific
+> additions have not yet been verified on other models.
 
-Supports all register values, 300+ entities are avaliable (most are disabled by default)
+## Why this fork exists
 
-**This component will set up the following platforms.**
+The original Thermia Genesis integration already exposes many Modbus registers
+to Home Assistant.
 
-| Platform        | Description                         |
-| --------------- | ----------------------------------- |
-| `binary_sensor` | Show something `True` or `False`.   |
-| `sensor`        | Show info from Thermia Genesis API. |
-| `switch`        | Switch something `True` or `False`. |
+On the Calibra Cool 7 BW, however, some functions are not represented correctly
+by the generic inverter implementation.
 
-## Installation
+This fork currently focuses on:
 
-1. Using the tool of choice open the directory (folder) for your HA configuration (where you find `configuration.yaml`).
-2. If you do not have a `custom_components` directory (folder) there, you need to create it.
-3. In the `custom_components` directory (folder) create a new folder called `thermiagenesis`.
-4. Download _all_ the files from the `custom_components/thermiagenesis/` directory (folder) in this repository.
-5. Place the files you downloaded in the new directory (folder) you created.
-6. Restart Home Assistant
-7. In the HA UI go to "Configuration" -> "Integrations" click "+" and search for "Thermia Genesis"
+- reliable detection of actual **passive cooling**;
+- exposing the **tap-water directional valve position**;
+- improved Calibra Cool device information in Home Assistant;
+- retaining compatibility with existing Home Assistant device registrations;
+- local communication with the heat pump using Modbus TCP.
 
-Using your HA configuration directory (folder) as a starting point you should now also have this:
+## Calibra Cool improvements
+
+### Reliable passive cooling detection
+
+On the tested Calibra Cool 7 BW, the original Genesis discrete input:
+
+`Mixing Valve 1 Is Producing Passive Cooling`
+
+does not reliably represent whether passive cooling is actually running.
+
+This fork therefore adds a new read-only binary sensor:
+
+**Passive Cooling Active**
+
+Passive cooling is considered active when:
+
+- `Mix Valve Cooling Opening Degree` is greater than 0%;
+- `Compressor Speed Rpm` is exactly 0 rpm.
+
+Both real Modbus values must be available.
+
+Missing values are deliberately **not interpreted as zero**, preventing false
+passive-cooling detections.
+
+The main `Heatpump` entity also reports:
+
+`Passive Cooling`
+
+when these conditions are met, even if the native Genesis heat-pump state still
+reports `OFF`.
+
+### Tap-water directional valve position
+
+This fork adds:
+
+**Tap Water Valve Position**
+
+The value is shown as a percentage.
+
+The underlying register is already known by `pythermiagenesis`, but it is
+filtered out by the generic inverter model used by the upstream integration.
+
+This fork registers the value explicitly for the tested Calibra installation.
+
+### Device information
+
+The device is displayed in Home Assistant as:
+
+- Manufacturer: **Thermia**
+- Model: **Calibra Cool 7 BW**
+
+The original internal Home Assistant device identifier is intentionally kept.
+
+This prevents an existing installation from creating a second heat-pump device
+when upgrading from the upstream Thermia Genesis integration.
+
+## Useful entities
+
+Some particularly useful entities on the tested Calibra Cool 7 BW are:
+
+- `Heatpump`
+- `Enable Passive Cooling`
+- `Passive Cooling Active`
+- `Mix Valve Cooling Opening Degree`
+- `Compressor Speed Rpm`
+- `Compressor Speed Percent`
+- `Brine In Temperature`
+- `Brine Out Temperature`
+- `Brine Circulation Pump Speed`
+- `Condenser In Temperature`
+- `Condenser Out Temperature`
+- `Condenser Circulation Pump Speed`
+- `Outdoor Temperature`
+- `Tap Water Top Temperature`
+- `Tap Water Lower Temperature`
+- `Tap Water Weighted Temperature`
+- `Tap Water Valve Position`
+
+Thermia Genesis exposes many more entities.
+
+Not every register is useful or valid for every Thermia model, so many entities
+are disabled by default.
+
+## Installation with HACS
+
+This repository can be installed as a **custom HACS repository**.
+
+1. Open HACS in Home Assistant.
+2. Open the custom repositories menu.
+3. Add:
+
+   `https://github.com/renaatdb/thermiagenesis`
+
+4. Select **Integration** as repository type.
+5. Install **Thermia Genesis**.
+6. Restart Home Assistant.
+7. Go to **Settings → Devices & services → Add integration**.
+8. Search for **Thermia Genesis**.
+9. Configure the Modbus TCP connection to the heat pump.
+
+The default branch of this fork is:
+
+`calibra-cool`
+
+## Manual installation
+
+Copy the complete directory:
 
 ```text
-custom_components/thermiagenesis/translations/en.json
-custom_components/thermiagenesis/translations/fr.json
-custom_components/thermiagenesis/translations/nb.json
-custom_components/thermiagenesis/translations/sensor.en.json
-custom_components/thermiagenesis/translations/sensor.fr.json
-custom_components/thermiagenesis/translations/sensor.nb.json
-custom_components/thermiagenesis/translations/sensor.nb.json
-custom_components/thermiagenesis/__init__.py
-custom_components/thermiagenesis/api.py
-custom_components/thermiagenesis/binary_sensor.py
-custom_components/thermiagenesis/config_flow.py
-custom_components/thermiagenesis/const.py
-custom_components/thermiagenesis/manifest.json
-custom_components/thermiagenesis/sensor.py
-custom_components/thermiagenesis/switch.py
-```
-
-## Configuration is done in the UI
-
-<!---->
-
-## Contributions are welcome!
-
-If you want to contribute to this please read the [Contribution guidelines](CONTRIBUTING.md)
-
-## Credits
-
-This project was generated from [@oncleben31](https://github.com/oncleben31)'s [Home Assistant Custom Component Cookiecutter](https://github.com/oncleben31/cookiecutter-homeassistant-custom-component) template.
-
-Code template was mainly taken from [@Ludeeus](https://github.com/ludeeus)'s [integration_blueprint][integration_blueprint] template
-
----
-
-[integration_blueprint]: https://github.com/custom-components/integration_blueprint
-[black]: https://github.com/psf/black
-[black-shield]: https://img.shields.io/badge/code%20style-black-000000.svg?style=for-the-badge
-[buymecoffee]: https://www.buymeacoffee.com/cjne
-[buymecoffeebadge]: https://img.shields.io/badge/buy%20me%20a%20coffee-donate-yellow.svg?style=for-the-badge
-[commits-shield]: https://img.shields.io/github/commit-activity/y/cjne/thermiagenesis.svg?style=for-the-badge
-[commits]: https://github.com/cjne/thermiagenesis/commits/main
-[hacs]: https://hacs.xyz
-[hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
-[discord]: https://discord.gg/Qa5fW2R
-[discord-shield]: https://img.shields.io/discord/330944238910963714.svg?style=for-the-badge
-[exampleimg]: example.png
-[forum-shield]: https://img.shields.io/badge/community-forum-brightgreen.svg?style=for-the-badge
-[forum]: https://community.home-assistant.io/
-[license-shield]: https://img.shields.io/github/license/cjne/thermiagenesis.svg?style=for-the-badge
-[maintenance-shield]: https://img.shields.io/badge/maintainer-%40cjne-blue.svg?style=for-the-badge
-[pre-commit]: https://github.com/pre-commit/pre-commit
-[pre-commit-shield]: https://img.shields.io/badge/pre--commit-enabled-brightgreen?style=for-the-badge
-[releases-shield]: https://img.shields.io/github/release/cjne/thermiagenesis.svg?style=for-the-badge
-[releases]: https://github.com/cjne/thermiagenesis/releases
-[user_profile]: https://github.com/cjne
+custom_components/thermiagenesis/
