@@ -14,7 +14,13 @@ from .const import DOMAIN
 
 ATTR_COUNTER = "counter"
 ATTR_FIRMWARE = "firmware"
-ATTR_MODEL = "Diplomat Inverter Duo"
+
+# Bestaande Home Assistant device-identifier bewust behouden.
+# Hierdoor wordt geen tweede Thermia-apparaat aangemaakt.
+ATTR_DEVICE_IDENTIFIER = "Diplomat Inverter Duo"
+
+# Correcte zichtbare apparaatnaam en model.
+ATTR_MODEL = "Calibra Cool 7 BW"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,7 +32,10 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     sensors = []
 
     device_info = {
-        "identifiers": {(DOMAIN, ATTR_MODEL)},
+        # Oude identifier behouden zodat HA hetzelfde apparaat blijft gebruiken.
+        "identifiers": {(DOMAIN, ATTR_DEVICE_IDENTIFIER)},
+
+        # Correcte zichtbare informatie.
         "name": ATTR_MODEL,
         "manufacturer": ATTR_MANUFACTURER,
         "model": ATTR_MODEL,
@@ -166,8 +175,7 @@ class ThermiaPassiveCoolingSensor(BinarySensorEntity):
         #
         # Een ontbrekende waarde mag niet als 0 worden geïnterpreteerd.
         # Anders zou bijvoorbeeld een ontbrekende compressorwaarde
-        # ten onrechte als 0 rpm kunnen worden beschouwd en zouden we
-        # foutief "passieve koeling actief" kunnen rapporteren.
+        # ten onrechte als 0 rpm kunnen worden beschouwd.
         if valve_opening is None or compressor_rpm is None:
             return False
 
