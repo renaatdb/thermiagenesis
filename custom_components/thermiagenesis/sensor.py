@@ -1,8 +1,7 @@
 import logging
 
-from homeassistant.components.sensor import SensorStateClass
+from homeassistant.components.sensor import SensorEntity
 from homeassistant.const import PERCENTAGE
-from homeassistant.helpers.entity import Entity
 from pythermiagenesis.const import ATTR_INPUT_COMPRESSOR_SPEED_RPM
 from pythermiagenesis.const import ATTR_INPUT_HOT_WATER_DIRECTIONAL_VALVE_POSITION
 from pythermiagenesis.const import ATTR_INPUT_MIX_VALVE_COOLING_OPENING_DEGREE
@@ -85,7 +84,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     async_add_entities(sensors, False)
 
 
-class ThermiaHeatpumpSensor(Entity):
+class ThermiaHeatpumpSensor(SensorEntity):
     """Define a Thermia heatpump sensor."""
 
     def __init__(self, coordinator, kind, device_info):
@@ -129,8 +128,8 @@ class ThermiaHeatpumpSensor(Entity):
             return False
 
     @property
-    def state(self):
-        """Return the state."""
+    def native_value(self):
+        """Return the value reported by the sensor."""
         val = self.coordinator.data.get(self.kind)
 
         # De standaard Genesis-status blijft bij de Calibra soms "OFF"
@@ -178,9 +177,25 @@ class ThermiaHeatpumpSensor(Entity):
         return self._unique_id
 
     @property
-    def unit_of_measurement(self):
+    def native_unit_of_measurement(self):
         """Return the unit the value is expressed in."""
         return SENSOR_TYPES[self.kind].get(ATTR_UNIT, None)
+
+    @property
+    def device_class(self):
+        """Return the device class."""
+        return SENSOR_TYPES[self.kind].get(ATTR_CLASS, None)
+
+    @property
+    def state_class(self):
+        """Return the state class.
+
+        The heat-pump status is a text state ("Heat", "No demand",
+        "Passive Cooling", ...), so it never carries a state class -- a
+        state class would make the recorder try to derive long-term
+        statistics from a string.
+        """
+        return SENSOR_TYPES[self.kind].get(ATTR_STATE_CLASS, None)
 
     @property
     def available(self):
@@ -240,7 +255,7 @@ class ThermiaHeatpumpSensor(Entity):
         await self.coordinator.async_request_refresh()
 
 
-class ThermiaGenericSensor(Entity):
+class ThermiaGenericSensor(SensorEntity):
     """Define a Thermia generic sensor."""
 
     def __init__(self, coordinator, kind, device_info):
@@ -258,8 +273,8 @@ class ThermiaGenericSensor(Entity):
         return self._name
 
     @property
-    def state(self):
-        """Return the state."""
+    def native_value(self):
+        """Return the value reported by the sensor."""
         return self.coordinator.data.get(self.kind)
 
     @property
@@ -278,7 +293,7 @@ class ThermiaGenericSensor(Entity):
         return self._unique_id
 
     @property
-    def unit_of_measurement(self):
+    def native_unit_of_measurement(self):
         """Return the unit the value is expressed in."""
         return SENSOR_TYPES[self.kind].get(ATTR_UNIT, None)
 
@@ -289,11 +304,13 @@ class ThermiaGenericSensor(Entity):
 
     @property
     def state_class(self):
-        """Return the state class."""
-        return SENSOR_TYPES[self.kind].get(
-            ATTR_STATE_CLASS,
-            SensorStateClass.MEASUREMENT,
-        )
+        """Return the state class.
+
+        Sensors that report text (or a numeric enum) declare no state
+        class, so no default is assumed here: the recorder must not try
+        to derive statistics from a non-measurement value.
+        """
+        return SENSOR_TYPES[self.kind].get(ATTR_STATE_CLASS, None)
 
     @property
     def available(self):
@@ -350,7 +367,7 @@ class ThermiaTapWaterValvePositionSensor(ThermiaGenericSensor):
         self._name = "Tap Water Valve Position"
 
     @property
-    def unit_of_measurement(self):
+    def native_unit_of_measurement(self):
         """Return the valve position as a percentage."""
         return PERCENTAGE
 
