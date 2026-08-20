@@ -156,7 +156,7 @@ class ThermiaPassiveCoolingSensor(BinarySensorEntity):
         """Initialize the passive cooling binary sensor."""
         self._attr_name = "Passive Cooling Active"
         self._attr_unique_id = "thermiagenesis_passive_cooling_active"
-        self._attr_icon = "mdi-snowflake"
+        self._attr_icon = "mdi:snowflake"
         self._device_info = device_info
         self.coordinator = coordinator
 
