@@ -19,6 +19,8 @@ from .const import HEATPUMP_ALARMS
 from .const import HEATPUMP_ATTRIBUTES
 from .const import HEATPUMP_SENSOR
 from .const import SENSOR_TYPES
+from .util import is_temperature
+from .util import temperature_or_none
 
 ATTR_COUNTER = "counter"
 ATTR_FIRMWARE = "firmware"
@@ -275,7 +277,15 @@ class ThermiaGenericSensor(SensorEntity):
     @property
     def native_value(self):
         """Return the value reported by the sensor."""
-        return self.coordinator.data.get(self.kind)
+        val = self.coordinator.data.get(self.kind)
+
+        # A temperature input whose sensor is not fitted reports a fixed
+        # 200 degrees. Report nothing rather than feed that into the
+        # recorder, where it would swamp every temperature graph.
+        if is_temperature(SENSOR_TYPES[self.kind]):
+            return temperature_or_none(val)
+
+        return val
 
     @property
     def extra_state_attributes(self):

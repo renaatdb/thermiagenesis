@@ -24,6 +24,7 @@ from .const import ATTR_STATUS
 from .const import CLIMATE_TYPES
 from .const import DOMAIN
 from .const import KEY_STATUS_VALUE
+from .util import temperature_or_none
 
 ATTR_FIRMWARE = "firmware"
 
@@ -114,11 +115,17 @@ class ThermiaClimateSensor(ClimateEntity):
 
     @property
     def current_temperature(self):
-        """Return the current temperature."""
+        """Return the current temperature.
+
+        A circuit whose sensor is not fitted reports a fixed 200 degrees;
+        report no current temperature at all in that case. The heat
+        circuit reads the room temperature sensor, which is optional on
+        several models, so this is the common case rather than a fault.
+        """
         val = self.coordinator.data.get(
             self.meta[ATTR_CURRENT_TEMPERATURE]
         )
-        return val
+        return temperature_or_none(val)
 
     @property
     def target_temperature_low(self):
