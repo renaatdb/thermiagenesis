@@ -126,4 +126,4 @@ class ThermiaGenesisDataUpdateCoordinator(DataUpdateCoordinator):
             self.attributes[attribute] = True
 
     async def wantsRefresh(self, attribute):
-        await self.coordinator.async_request_refresh()
+        await self.async_request_refresh()
