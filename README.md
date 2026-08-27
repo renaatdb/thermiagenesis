@@ -30,6 +30,9 @@ This fork currently focuses on:
 - reliable detection of actual **passive cooling**;
 - exposing the **tap-water directional valve position**;
 - improved Calibra Cool device information in Home Assistant;
+- Home Assistant **long-term statistics** for supported Thermia sensors;
+- filtering invalid **200 °C values from disconnected temperature sensors**;
+- improved Home Assistant frontend compatibility and icon handling;
 - retaining compatibility with existing Home Assistant device registrations;
 - local communication with the heat pump using Modbus TCP.
 
@@ -89,6 +92,55 @@ The original internal Home Assistant device identifier is intentionally kept.
 This prevents an existing installation from creating a second heat-pump device
 when upgrading from the upstream Thermia Genesis integration.
 
+### Home Assistant sensor improvements
+
+This fork also includes several Home Assistant compatibility and data-quality
+improvements tested on a Thermia Calibra Cool 7 BW.
+
+#### Long-term statistics
+
+Thermia sensor entities use Home Assistant's `SensorEntity` model with
+appropriate `device_class` and `state_class` values.
+
+This enables Home Assistant long-term statistics for supported measurements
+such as:
+
+- temperatures;
+- electrical power and energy;
+- pump and valve percentages;
+- operating hours.
+
+Text-based status sensors are deliberately excluded from statistics.
+
+#### Disconnected temperature sensors
+
+Thermia Genesis reports exactly `200 °C` for several temperature inputs when
+the corresponding physical sensor is not fitted.
+
+This fork recognises that value as a disconnected-sensor sentinel and reports
+the entity as:
+
+`unknown`
+
+instead of recording an incorrect 200 °C measurement.
+
+Real temperature measurements are left unchanged.
+
+This also prevents an optional missing room-temperature sensor from appearing
+as a false 200 °C current temperature in Home Assistant.
+
+#### Home Assistant frontend fixes
+
+Several Home Assistant compatibility issues have also been corrected:
+
+- removed an unresolved `{model}` placeholder from the integration title;
+- corrected Material Design icon identifiers such as `mdi-gauge` to the valid
+  `mdi:gauge` format;
+- improved sensor units and classifications where applicable.
+
+These changes improve Home Assistant logs, entity presentation and recorder
+statistics.
+
 ## Useful entities
 
 Some particularly useful entities on the tested Calibra Cool 7 BW are:
@@ -127,7 +179,7 @@ This repository can be installed as a **custom HACS repository**.
    `https://github.com/renaatdb/thermiagenesis`
 
 4. Select **Integration** as repository type.
-5. Install **Thermia Genesis**.
+5. Install **Thermia Genesis - Calibra Cool**.
 6. Restart Home Assistant.
 7. Go to **Settings → Devices & services → Add integration**.
 8. Search for **Thermia Genesis**.
@@ -143,3 +195,53 @@ Copy the complete directory:
 
 ```text
 custom_components/thermiagenesis/
+```
+
+to the `custom_components` directory of your Home Assistant configuration.
+
+Your Home Assistant configuration should then contain:
+
+```text
+/config/custom_components/thermiagenesis/
+```
+
+Restart Home Assistant and add **Thermia Genesis** from:
+
+**Settings → Devices & services → Add integration**
+
+Configure the local Modbus TCP connection to the Thermia heat pump.
+
+## Contributions
+
+Community improvements, testing and pull requests are welcome.
+
+Special thanks to
+[@bolkedebruin](https://github.com/bolkedebruin)
+for contributions improving:
+
+- Home Assistant long-term statistics;
+- handling of disconnected temperature sensors;
+- Home Assistant translation/frontend compatibility;
+- Material Design icon identifiers;
+- sensor units and classifications.
+
+These contributions were tested on a Thermia Calibra Cool 7 BW and have helped
+make this fork more reliable and more useful to other Home Assistant users.
+
+## Credits
+
+This repository is based on the original
+[CJNE/thermiagenesis](https://github.com/CJNE/thermiagenesis)
+Home Assistant integration.
+
+The original project, its authors and contributors remain the foundation of
+this fork.
+
+The underlying Modbus communication uses
+[`pythermiagenesis`](https://github.com/CJNE/pythermiagenesis).
+
+## License
+
+This fork retains the license of the original Thermia Genesis project.
+
+See [LICENSE](LICENSE) for details.
