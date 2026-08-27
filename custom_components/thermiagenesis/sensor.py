@@ -166,12 +166,12 @@ class ThermiaHeatpumpSensor(SensorEntity):
     def icon(self):
         """Return the icon."""
         if self.has_alarm():
-            return "mdi-alert"
+            return "mdi:alert"
 
         if self.is_passive_cooling():
-            return "mdi-snowflake"
+            return "mdi:snowflake"
 
-        return "mdi-pulse"
+        return "mdi:pulse"
 
     @property
     def unique_id(self):
